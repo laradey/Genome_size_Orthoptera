@@ -1,0 +1,444 @@
+###################################     GENOMESIZE    #######################
+
+
+
+library(phytools)
+library(ape) #Nonparametric rate smoothing is implemented 
+#citation("ape")
+# set working directory
+setwd("D:/Genome_size_2/R_genomezise/")
+#print current working directory
+print(getwd())
+
+
+
+raw_fasta<-read.FASTA("./Alignement_2501_02.fasta")
+
+# read genome sizes
+gsizes <- read.csv("sizeAv.csv", sep=",", dec=".", row.names=1)
+labels <- gsizes
+gsizesAv <- as.matrix(gsizes["g_number_av"])[,1]
+gsizesAv
+length(gsizes)
+print(gsizes)
+
+
+
+
+#plotTree.wBars(tree, exp(gsizesAv), type="fan", fsize=0.7, tip.labels = TRUE)
+
+
+# read tree
+#file_name = "10M_V3.tre"
+#file_name <- "D:/Genome_size_2/R_genomezise/IQ_tree_2501_02.tre"
+tree<- read.newick("D:/Genome_size_2/R_genomezise/IQTree_040222.nwk")
+print(tree)
+length(tree$tip.label)
+tree$tip.label
+
+to_be_dropped <- c("Zichya_tenggerensis_MT849271.1", "Stenobothrus_stigmaticus_", "Pholidoptera_litoralis", "Melanoplus_sanguinipes_", "Mecopoda_niponensis_JQ917909.1", "Decticus_verrucivorus_", "Diestrammena_asynamora_KX057726.1", "Diestrammena_japanica_MK347245.1", "Mecopoda_niponensis_JQ917909.1", "Teleogryllus_emma_MZ440653.1", "Xenogryllus_marmoratus_NC_041236.1" )#
+for (tip_label in to_be_dropped) {
+  tree <- drop.tip(tree, tip_label, trim.internal=TRUE)
+}
+tree$tip.label
+
+#tree$tip.label[19] <- "Tetrix_subulata_2"
+#tree$tip.label[24] <- "Trilophidia_annulata"
+#tree$tip.label[26] <- "Aiolopus_thalassinus"
+#tree$tip.label[27] <- "Epacromius_coerulipes"
+#tree$tip.label[35] <- "Oedaleus_infernalis"
+#tree$tip.label[36] <- "Oedaleus_asiaticus"
+
+#tree$tip.label
+
+plotTree(tree, ftype="i", legend=0.7*max(nodeHeights(tree)), fsize=0.7)
+write.tree(tree, "IQTREE_Analyses.tre", overwrite=TRUE)
+
+print(tree)
+#tree1<-read.newick("D:/Genome_size_2/R_genomezise/IQTREE_Analyses_rerooted.nwk")
+#(tree, "10M_20210621.tre")
+
+###################mine
+fit<-fastAnc(tree, gsizesAv, vars=TRUE, CI=TRUE)
+fit
+
+fit$CI[1,]
+range(gsizesAv)
+
+obj<-contMap(tree, gsizesAv, plot = FALSE)
+plot(obj, legend=0.7*max(nodeHeights(tree)), fsize=c(0.7,0.9))
+
+pdf("tree_ASC.pdf", width=10, height=20)
+obj<-contMap(tree,gsizesAv,plot=FALSE)
+plotTree.wBars(obj$tree,gsizesAv,method="plotSimmap",
+               tip.labels=TRUE,fsize=0.7,colors=obj$cols,scale=0.002)
+add.color.bar(1.0,obj$cols,title="trait value",lims=obj$lims,prompt=FALSE,
+              x=0.9*par()$usr[1],y=0.9*par()$usr[3])
+dev.off()
+
+#estimate ancestral states
+fit <- fastAnc(tree, gsizesAv, vars=TRUE, CI=TRUE)
+aces <- as.matrix(fit$ace)
+colnames(aces) <- c("ACE")
+node_labels <- as.vector(aces[,"ACE"])
+node_labels <- round(node_labels, 4)
+node_labels <- as.character(node_labels)
+node_labels
+node_ids <- as.vector(rownames(aces))
+node_ids <- as.numeric(node_ids)
+node_ids
+
+# color gradient projection
+pdf("mean_tree_no_labels.pdf", width=25, height=70)
+obj <- contMap(tree, gsizesAv, plot=TRUE)
+for (lbl in 0:length(obj$tree$tip.label)) {
+  species <- obj$tree$tip.label[lbl]
+  obj$tree$tip.label[lbl] <- paste(obj$tree$tip.label[lbl], "___Mean = ", labels[species,]$g_number_av, sep="")
+}
+plot(obj, legend=0.7*max(nodeHeights(tree)), fsize=1.5, offset=0.5)
+#nodelabels(node_labels, node_ids, frame="none", adj=c(1.4, -0.6), cex=1)
+dev.off()
+
+
+#################################ASC nodes
+
+pdf("tree_ASC_nodes.pdf", width=25, height=70)
+obj <- contMap(tree, gsizesAv, plot=TRUE)
+for (lbl in 0:length(obj$tree$tip.label)) {
+  species <- obj$tree$tip.label[lbl]
+  obj$tree$tip.label[lbl] <- paste(obj$tree$tip.label[lbl], "___Mean = ", labels[species,]$g_number_av, sep="")
+}
+plot(obj, legend=0.7*max(nodeHeights(tree)), fsize=1.5, offset=0.5)
+nodelabels(node_labels, node_ids, frame="none", adj=c(1.4, -0.6), cex=1)
+dev.off()
+
+
+
+ write.tree(obj$tree, file="test_tree.tre")
+
+ plotTree(tree, fsize=0.3, ftype="i",lwd=1, showNodeLabel=TRUE)
+ 
+ 
+ 
+ 
+ 
+ ##################
+ 
+ ###  Boxplots  ###
+
+ ##################
+ 
+ 
+ setwd("D:/Genome_size_2/R_genomezise/")
+
+ 
+ library(ggplot2) 
+ if(!require(devtools)) install.packages("devtools")
+ devtools::install_github("kassambara/ggpubr")
+ 
+ 
+ library(ggpubr)
+ 
+
+######    Both Suborders together
+ data_gz<-read.csv("D:/Genome_size_2/R_genomezise/All_genome_sizes_Box.csv", sep=";", header = TRUE) 
+ 
+ 
+ data_gz$Family <- factor(data_gz$Family , levels=c("Acrididae", "Morabidae", "Tetrigidae", "Anostostomatidae", "Gryllacrididae", "Gryllidae", "Gryllotalpidae", "Rhaphidophoridae", "Tettigoniidae", "Trigoniidae"))
+ 
+ A<-ggplot(data_gz, aes(x = Family, y = size, fill = Suborder)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Genome size per Family",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   scale_x_discrete(guide = guide_axis(angle = 90)) +
+   geom_boxplot()+
+   scale_fill_manual(values = c("grey", "white")) +
+  theme(legend.position = c(0.9, 0.9), axis.title.x = element_blank())
+A 
+ 
+ 
+ ###    Suborders splitted
+library(tidyverse)
+ Caeli<-read.csv("./Caelifera_sizes.csv", sep=";" , header = TRUE) 
+ Ensi<-read.csv("./Ensifera_sizes.csv", sep=";" , header = TRUE) 
+ 
+ A1<-ggplot(data_gz, aes(x = Family, y = size, col = Suborder)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Genome size per family",x="Family", y = "1C [pg]")+
+   scale_colour_grey() +
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   theme(axis.title.y = element_blank()) +
+
+   theme(legend.position = c(0.85, 0.7)) +
+   geom_boxplot() 
+
+ 
+ A1
+ 
+ 
+ C<-ggplot(Caeli, aes(x = Subfamily, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Caelifera subfamilies",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   theme(axis.title.y = element_blank()) +
+    scale_y_continuous(limits = c(0, 25))+
+   geom_boxplot()
+ 
+ C
+ 
+ E<-ggplot(Ensi, aes(x = Subfamily, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Ensifera subfamilies",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   theme(axis.title.y = element_blank()) +
+    scale_y_continuous(limits = c(0, 25))+
+   geom_boxplot()
+ 
+ E
+ 
+ 
+ 
+ 
+
+ggarrange(A1, C, E, 
+          labels = c("A", "B", "C"),
+           ncol = 1, nrow = 3)
+
+ 
+ 
+ ggarrange(A,                                                 # First row with scatter plot
+           ggarrange(C, E, ncol = 2, labels = c("B", "C")), # Second row with box and dot plots
+           nrow = 2, 
+           labels = "A"                                        # Labels of the scatter plot
+ )  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ data_gz$Suborder <- factor(data_gz$Suborder , levels=c("Ensifera", "Caelifera"))
+ 
+ A<-ggplot(data_gz, aes(x = Suborder, y = size, fill = Suborder)) + 
+    stat_boxplot(geom = "errorbar",
+                 width = 0.25) + 
+    labs(title="Genome size per Family",x="Family", y = "1C [pg]")+
+    theme_minimal()+
+    scale_x_discrete(guide = guide_axis(angle = 90)) +
+    geom_boxplot()+
+    scale_fill_manual(values = c("grey", "white")) +
+    theme(legend.position = c(0.9, 0.9), axis.title.x = element_blank()) 
+plot(A) 
+
+stat_summary(A)
+
+
+
+################################################################################
+################################################################################
+################################################################################
+###   new boxplots july 22
+
+##################
+
+###  Boxplots  ###
+
+##################
+
+
+setwd("D:/Genome_size_2/R_genomezise/new_boxplots")
+
+
+library(ggplot2) 
+if(!require(devtools)) install.packages("devtools")
+devtools::install_github("kassambara/ggpubr")
+
+
+library(ggpubr)
+
+
+######    Both Suborders together
+data_gz<-read.csv("D:/Genome_size_2/R_genomezise/new_boxplots/All_genome_sizes_Box_new.csv", sep=";", header = TRUE) 
+
+
+data_gz$Family <- factor(data_gz$Family , levels=c("Acrididae", "Morabidae",  "Tetrigidae", "Anostostomatidae", "Gryllacrididae", "Gryllidae", "Gryllotalpidae", "Mogoplistidae","Rhaphidophoridae", "Tettigoniidae", "Trigoniidae"))
+
+A<-ggplot(data_gz, aes(x = Family, y = size, fill = Suborder)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Genome size per Family",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   scale_x_discrete(guide = guide_axis(angle = 90)) +
+   geom_boxplot()+
+   scale_fill_manual(values = c("grey", "white")) +
+   theme(legend.position = c(0.9, 0.9), axis.title.x = element_blank())
+A 
+
+
+###    Suborders splitted
+library(tidyverse)
+Caeli<-read.csv("D:/Genome_size_2/R_genomezise/new_boxplots/Caelifera.csv", sep=";" , header = TRUE) 
+Ensi<-read.csv("D:/Genome_size_2/R_genomezise/new_boxplots/Ensifera.csv", sep=";" , header = TRUE) 
+
+A1<-ggplot(data_gz, aes(x = Family, y = size, col = Suborder)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Genome size per family",x="Family", y = "1C [pg]")+
+   scale_colour_grey() +
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   theme(axis.title.y = element_blank()) +
+   
+   theme(legend.position = c(0.85, 0.7)) +
+   geom_boxplot() 
+
+
+A1
+
+
+C<-ggplot(Caeli, aes(x = Subfamily, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Caelifera subfamilies",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   theme(axis.title.y = element_blank()) +
+   
+   geom_boxplot()
+
+C
+
+E<-ggplot(Ensi, aes(x = Subfamily, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Ensifera subfamilies",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   theme(axis.title.y = element_blank()) +
+   
+   geom_boxplot()
+
+E
+
+
+
+
+
+ggarrange(A1, C, E, 
+          labels = c("A", "B", "C"),
+          ncol = 1, nrow = 3)
+
+
+
+ggarrange(A,                                                 # First row with scatter plot
+          ggarrange(C, E, ncol = 2, labels = c("B", "C")), # Second row with box and dot plots
+          nrow = 2, 
+          labels = "A"                                        # Labels of the scatter plot
+)  
+
+
+
+
+
+
+
+
+
+
+
+
+
+data_gz$Suborder <- factor(data_gz$Suborder , levels=c("Ensifera", "Caelifera"))
+
+A<-ggplot(data_gz, aes(x = Suborder, y = size, fill = Suborder)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Genome size per Family",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   scale_x_discrete(guide = guide_axis(angle = 90)) +
+   geom_boxplot()+
+   scale_fill_manual(values = c("grey", "white")) +
+   theme(legend.position = c(0.9, 0.9), axis.title.x = element_blank()) 
+plot(A) 
+
+stat_summary(A)
+
+#######################################september
+
+
+
+###    Suborders splitted
+library(tidyverse)
+Caeli<-read.csv("D:/Genome_size_2/R_genomezise/new_boxplots/Caelifera.csv", sep=";" , header = TRUE) 
+Ensi<-read.csv("D:/Genome_size_2/R_genomezise/new_boxplots/Ensifera.csv", sep=";" , header = TRUE) 
+
+
+A2<-ggplot(data_gz, aes(x = Family, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Genome size per family",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   scale_y_continuous(limits = c(0, 25))+
+   theme(axis.title.y = element_blank()) +
+   
+   geom_boxplot()
+
+A2
+
+C<-ggplot(Caeli, aes(x = Subfamily, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Caelifera subfamilies",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   scale_y_continuous(limits = c(0, 25))+
+   theme(axis.title.y = element_blank()) +
+   
+   geom_boxplot()
+
+C
+
+E<-ggplot(Ensi, aes(x = Subfamily, y = size)) + 
+   stat_boxplot(geom = "errorbar",
+                width = 0.25) + 
+   labs(title="Ensifera subfamilies",x="Family", y = "1C [pg]")+
+   theme_minimal()+
+   coord_flip()+
+   theme_bw() +
+   scale_y_continuous(limits = c(0, 25))+
+   theme(axis.title.y = element_blank()) +
+   
+   geom_boxplot()
+
+E
+
+
+
+
+
+ggarrange(A2, C, E, 
+          labels = c("A", "B", "C"),
+          ncol = 1, nrow = 3)
